@@ -3,6 +3,7 @@ import SwiftUI
 
 struct MenuBarView: View {
     @ObservedObject var store: UsageStore
+    @ObservedObject var updateStore: AppUpdateStore
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
@@ -19,12 +20,27 @@ struct MenuBarView: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                if store.isRefreshing {
+                if store.isRefreshing || updateStore.state == .checking {
                     ProgressView()
                         .controlSize(.small)
                 }
             }
             .padding(14)
+
+            if let release = updateStore.availableRelease {
+                Divider()
+                UpdateAvailableMenuCard(
+                    release: release,
+                    currentVersion: updateStore.currentVersionString,
+                    openRelease: {
+                        NSWorkspace.shared.open(release.htmlURL)
+                    },
+                    ignoreRelease: {
+                        updateStore.ignoreLatestVersion()
+                    }
+                )
+                .padding(12)
+            }
 
             Divider()
 
@@ -36,7 +52,7 @@ struct MenuBarView: View {
                 }
                 .padding(12)
             }
-            .frame(maxHeight: 390)
+            .frame(maxHeight: updateStore.hasAvailableUpdate ? 300 : 390)
 
             Divider()
 
@@ -44,7 +60,7 @@ struct MenuBarView: View {
                 Button {
                     Task { await store.refreshAll() }
                 } label: {
-                    Label("更新", systemImage: "arrow.clockwise")
+                    Label("更新用量", systemImage: "arrow.clockwise")
                 }
                 .disabled(store.isRefreshing)
 
@@ -56,6 +72,14 @@ struct MenuBarView: View {
                 }
 
                 Spacer()
+
+                Button {
+                    Task { await updateStore.checkNow(ignoreETag: true) }
+                } label: {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                }
+                .disabled(updateStore.state == .checking)
+                .help("檢查 App 更新")
 
                 SettingsLink {
                     Image(systemName: "gearshape")
@@ -76,8 +100,61 @@ struct MenuBarView: View {
     }
 
     private var lastUpdateDescription: String {
-        guard let lastRefresh = store.lastRefresh else { return "尚未更新" }
-        return "最後更新：\(lastRefresh.formatted(date: .omitted, time: .standard))"
+        guard let lastRefresh = store.lastRefresh else { return "尚未更新用量" }
+        return "用量更新：\(lastRefresh.formatted(date: .omitted, time: .standard))"
+    }
+}
+
+private struct UpdateAvailableMenuCard: View {
+    let release: GitHubReleaseInfo
+    let currentVersion: String
+    let openRelease: () -> Void
+    let ignoreRelease: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            HStack(spacing: 9) {
+                Image(systemName: "arrow.down.circle.fill")
+                    .font(.title3)
+                    .foregroundStyle(.blue)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("有新版本 \(release.versionDescription)")
+                        .font(.subheadline.weight(.semibold))
+                    Text("目前版本 \(currentVersion)")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Text("NEW")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(.blue, in: Capsule())
+            }
+
+            if !release.body.isEmpty {
+                Text(release.body)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(3)
+            }
+
+            HStack(spacing: 12) {
+                Button("查看更新", action: openRelease)
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                Button("略過此版本", action: ignoreRelease)
+                    .buttonStyle(.borderless)
+                    .controlSize(.small)
+            }
+        }
+        .padding(12)
+        .background(.blue.opacity(0.08), in: RoundedRectangle(cornerRadius: 13))
+        .overlay {
+            RoundedRectangle(cornerRadius: 13)
+                .stroke(.blue.opacity(0.18), lineWidth: 1)
+        }
     }
 }
 
@@ -136,17 +213,32 @@ private struct MenuBarServiceRow: View {
 
 struct MenuBarLabel: View {
     @ObservedObject var store: UsageStore
+    @ObservedObject var updateStore: AppUpdateStore
 
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: labelSymbol)
-            Text(store.menuBarTitle)
+            Text(labelTitle)
                 .monospacedDigit()
         }
-        .accessibilityLabel("AI 用量，最低剩餘 \(store.menuBarTitle)")
+        .accessibilityLabel(accessibilityDescription)
+    }
+
+    private var labelTitle: String {
+        updateStore.hasAvailableUpdate ? "NEW" : store.menuBarTitle
+    }
+
+    private var accessibilityDescription: String {
+        if let release = updateStore.availableRelease {
+            return "AI Usage Monitor 有新版本 \(release.versionDescription)"
+        }
+        return "AI 用量，最低剩餘 \(store.menuBarTitle)"
     }
 
     private var labelSymbol: String {
+        if updateStore.hasAvailableUpdate {
+            return "arrow.down.circle.fill"
+        }
         guard let remaining = store.lowestRemainingPercent else {
             return "gauge.open.with.lines.needle.33percent"
         }

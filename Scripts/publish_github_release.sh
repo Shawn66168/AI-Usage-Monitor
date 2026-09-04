@@ -272,6 +272,14 @@ log "Release assets:"
 ls -lh "$APP_ZIP" "$SOURCE_ZIP" "$CHECKSUMS_FILE"
 cat "$CHECKSUMS_FILE"
 
+log "Running final security audit against source history and this release's assets."
+(
+  AUDIT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/ai-usage-release-assets.XXXXXX")"
+  trap 'rm -rf "$AUDIT_DIR"' EXIT
+  cp "$APP_ZIP" "$SOURCE_ZIP" "$AUDIT_DIR/"
+  bash "$ROOT_DIR/Scripts/security_audit.sh" --artifacts "$AUDIT_DIR"
+)
+
 if "$DRY_RUN"; then
   log "Dry run completed. No repository, branch, tag, or GitHub Release was changed."
   if ! "$REPO_EXISTS"; then

@@ -32,7 +32,7 @@ GitHub CLI 的 `release create` 支援 `--repo` 指定 Repository、`--verify-ta
 請先確認所有程式碼與 Release Notes 都已提交。腳本會拒絕在工作目錄有未提交變更時執行，避免 Source ZIP 與 App binary 使用不同內容。
 
 ```bash
-cd "/Users/shawn/Projects/AI Useing/AIUsageMonitor"
+cd "/path/to/AIUsageMonitor"
 
 git status
 git log -1 --oneline

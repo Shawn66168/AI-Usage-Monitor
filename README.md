@@ -97,7 +97,7 @@ Build/AI-Usage-Monitor-macOS-arm64-v0.1.0.zip
 目前使用者的 Swift Command Line Tools 與 PackageDescription runtime 存在版本連結不一致，因此專案提供不依賴 `swift build` 的可重複建置腳本。所有 Swift 原始碼仍維持標準 Swift Package 目錄結構，安裝完整 Xcode 後可再轉為正式 Xcode project 或修復本機 toolchain 後使用 `Package.swift`。
 
 ```bash
-cd "/Users/shawn/Projects/AI Useing/AIUsageMonitor"
+cd "/path/to/AIUsageMonitor"
 chmod +x Scripts/build_app.sh Scripts/run_tests.sh
 ./Scripts/run_tests.sh
 ./Scripts/build_app.sh

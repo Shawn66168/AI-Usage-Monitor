@@ -63,7 +63,7 @@ Build/AI-Usage-Monitor-macOS-arm64-v0.1.0.zip
 ## 執行方式
 
 ```bash
-cd "/Users/shawn/Projects/AI Useing/AIUsageMonitor"
+cd "/path/to/AIUsageMonitor"
 ./Scripts/run_tests.sh
 ./Scripts/build_app.sh
 ```

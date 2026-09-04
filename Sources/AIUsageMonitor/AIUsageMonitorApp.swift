@@ -4,6 +4,7 @@ import SwiftUI
 @main
 struct AIUsageMonitorApp: App {
     @StateObject private var store: UsageStore
+    @StateObject private var updateStore: AppUpdateStore
 
     init() {
         let providers: [any UsageProvider] = [
@@ -25,16 +26,22 @@ struct AIUsageMonitorApp: App {
         ]
 
         _store = StateObject(wrappedValue: UsageStore(providers: providers))
+        _updateStore = StateObject(wrappedValue: AppUpdateStore())
     }
 
     var body: some Scene {
         MenuBarExtra {
-            MenuBarView(store: store)
+            MenuBarView(store: store, updateStore: updateStore)
                 .task {
                     store.start()
+                    updateStore.start()
                 }
         } label: {
-            MenuBarLabel(store: store)
+            MenuBarLabel(store: store, updateStore: updateStore)
+                .task {
+                    store.start()
+                    updateStore.start()
+                }
         }
         .menuBarExtraStyle(.window)
 
@@ -42,13 +49,14 @@ struct AIUsageMonitorApp: App {
             DashboardView(store: store)
                 .task {
                     store.start()
+                    updateStore.start()
                 }
         }
         .defaultSize(width: 1180, height: 760)
         .windowResizability(.contentMinSize)
 
         Settings {
-            SettingsView(store: store)
+            SettingsView(store: store, updateStore: updateStore)
         }
     }
 }

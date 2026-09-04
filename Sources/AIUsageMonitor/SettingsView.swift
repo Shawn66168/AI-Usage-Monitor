@@ -1,13 +1,20 @@
+import AppKit
 import SwiftUI
 
 struct SettingsView: View {
     @ObservedObject var store: UsageStore
+    @ObservedObject var updateStore: AppUpdateStore
 
     var body: some View {
         TabView {
             GeneralSettingsView(store: store)
                 .tabItem {
                     Label("一般", systemImage: "gearshape")
+                }
+
+            UpdateSettingsView(updateStore: updateStore)
+                .tabItem {
+                    Label("更新", systemImage: "arrow.down.circle")
                 }
 
             DataSourceSettingsView(store: store)
@@ -20,7 +27,7 @@ struct SettingsView: View {
                     Label("隱私", systemImage: "hand.raised.fill")
                 }
         }
-        .frame(width: 640, height: 470)
+        .frame(width: 660, height: 500)
         .padding(16)
     }
 }
@@ -89,6 +96,131 @@ private struct GeneralSettingsView: View {
                 store.preferences = preferences
             }
         )
+    }
+}
+
+private struct UpdateSettingsView: View {
+    @ObservedObject var updateStore: AppUpdateStore
+
+    var body: some View {
+        Form {
+            Section("版本") {
+                LabeledContent("目前版本", value: updateStore.currentVersionString)
+
+                if let release = updateStore.latestRelease {
+                    LabeledContent("GitHub 最新版本", value: release.versionDescription)
+                    if let publishedAt = release.publishedAt {
+                        LabeledContent(
+                            "發布時間",
+                            value: publishedAt.formatted(date: .abbreviated, time: .shortened)
+                        )
+                    }
+                }
+
+                HStack {
+                    Button {
+                        Task { await updateStore.checkNow(ignoreETag: true) }
+                    } label: {
+                        Label("立即檢查更新", systemImage: "arrow.triangle.2.circlepath")
+                    }
+                    .disabled(updateStore.state == .checking)
+
+                    if updateStore.state == .checking {
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+
+                    Spacer()
+                    Text(updateStore.statusDescription)
+                        .font(.caption)
+                        .foregroundStyle(statusColor)
+                }
+
+                if let lastChecked = updateStore.lastChecked {
+                    Text("上次檢查：\(lastChecked.formatted(date: .abbreviated, time: .standard))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Section("自動檢查") {
+                Toggle("自動檢查 GitHub Releases", isOn: automaticChecksBinding)
+                Picker("檢查頻率", selection: intervalBinding) {
+                    Text("每 6 小時").tag(6.0)
+                    Text("每 12 小時").tag(12.0)
+                    Text("每天").tag(24.0)
+                }
+                .pickerStyle(.menu)
+                .disabled(!updateStore.preferences.automaticChecksEnabled)
+
+                Text("只讀取公開 Release metadata，不使用 GitHub Token，也不傳送 AI 用量、裝置識別碼或其他遙測資料。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if let release = updateStore.availableRelease {
+                Section("有新版本 \(release.versionDescription)") {
+                    Text(release.name)
+                        .font(.subheadline.weight(.medium))
+                    if !release.body.isEmpty {
+                        Text(release.body)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(5)
+                    }
+                    HStack {
+                        Button("開啟 GitHub Release") {
+                            NSWorkspace.shared.open(release.htmlURL)
+                        }
+                        .buttonStyle(.borderedProminent)
+
+                        Button("略過此版本") {
+                            updateStore.ignoreLatestVersion()
+                        }
+                    }
+                }
+            } else if let ignoredVersion = updateStore.preferences.ignoredVersion {
+                Section("忽略版本") {
+                    LabeledContent("目前忽略", value: ignoredVersion)
+                    Button("重新提示此版本") {
+                        updateStore.clearIgnoredVersion()
+                    }
+                }
+            }
+        }
+        .formStyle(.grouped)
+    }
+
+    private var automaticChecksBinding: Binding<Bool> {
+        Binding(
+            get: { updateStore.preferences.automaticChecksEnabled },
+            set: { value in
+                var preferences = updateStore.preferences
+                preferences.automaticChecksEnabled = value
+                updateStore.preferences = preferences
+            }
+        )
+    }
+
+    private var intervalBinding: Binding<Double> {
+        Binding(
+            get: { updateStore.preferences.checkIntervalHours },
+            set: { value in
+                var preferences = updateStore.preferences
+                preferences.checkIntervalHours = value
+                updateStore.preferences = preferences
+            }
+        )
+    }
+
+    private var statusColor: Color {
+        if case .failed = updateStore.state {
+            return .red
+        }
+        if updateStore.hasAvailableUpdate {
+            return .blue
+        }
+        return .secondary
     }
 }
 
