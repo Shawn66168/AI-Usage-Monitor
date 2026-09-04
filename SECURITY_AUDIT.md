@@ -1,13 +1,13 @@
 # 公開發布前資安稽核報告
 
 **稽核日期：2026-09-04**  
-**稽核範圍：Git 完整歷史、目前追蹤檔案、v0.1.1 Release App ZIP、Source ZIP、Checksum、App binary 與打包流程**
+**稽核範圍：Git 完整歷史、目前追蹤檔案、v0.1.1 與 v0.2.0 Release 資產、Checksum、App binary、GitHub 更新連線與打包流程**
 
 ## 結論
 
-本次稽核沒有發現任何實際 **Anthropic/OpenAI/Google API Key、GitHub Token、私鑰、密碼、Cookie、瀏覽器 Session、憑證檔、Claude transcript、Codex 對話內容或 Antigravity CSRF Token** 被提交或打包。v0.1.1 App binary 未包含開發者的絕對建置路徑，Release Checksum 亦驗證成功。
+本次稽核沒有發現任何實際 **Anthropic/OpenAI/Google API Key、GitHub Token、私鑰、密碼、Cookie、瀏覽器 Session、憑證檔、Claude transcript、Codex 對話內容或 Antigravity CSRF Token** 被提交或打包。v0.1.1 與 v0.2.0 App binary 均未包含開發者的絕對建置路徑，Release Checksum 亦驗證成功。
 
-> **公開風險判定：可在完成文件路徑清理與新版安全掃描整合後公開。** 目前 Repository 仍維持 Private，尚未執行 visibility 變更。
+> **公開風險判定：PASS。** 文件路徑已清理，安全掃描已整合至測試與發布流程；Repository 已切換為 Public，並已啟用 GitHub Secret Scanning 與 Push Protection。
 
 ## 稽核結果
 
@@ -22,7 +22,9 @@
 | Keychain 資料 | PASS | Keychain 只在執行時透過 Security framework 讀寫，沒有匯出到專案或 Release |
 | Antigravity CSRF | PASS | CSRF Token 只存在於執行時記憶體，沒有寫入 log、cache、Git 或 Release |
 | Release SHA-256 | PASS | App ZIP 與 Source ZIP 都通過發布 Checksum 回驗 |
-| 文件絕對路徑 | 已修正 | README、RELEASING 與 TEST_REPORT 的個人路徑已改為 `/path/to/AIUsageMonitor` |
+| 文件絕對路徑 | PASS | README、RELEASING 與 TEST_REPORT 的個人路徑已改為 `/path/to/AIUsageMonitor` |
+| Public 更新 API | PASS | 在移除 `GH_TOKEN` 與 `GITHUB_TOKEN` 後，App client 仍可讀取最新 Release |
+| GitHub Secret Scanning | ENABLED | Repository 已啟用 Secret Scanning 與 Push Protection |
 
 ## 資料最小化確認
 
@@ -30,6 +32,6 @@
 
 新增的 GitHub 更新檢查將只讀取 Public Release 的 `tag_name`、`name`、`body`、`html_url`、`published_at`、`prerelease` 與公開下載連結，不使用 GitHub Token，也不傳送本機 AI 用量、裝置識別碼或使用者資料。
 
-## 公開前必要控制
+## 持續發布控制
 
-在變更 Repository visibility 前，必須再次完成目前 HEAD Secret 掃描、Git 歷史 Secret 掃描、Release Source ZIP 掃描、App binary 絕對路徑掃描與 SHA-256 驗證。發布腳本亦應在建立 GitHub Release 前自動執行這些檢查，任一項失敗就中止發布。
+每次建立 GitHub Release 前，發布腳本都會完成目前 HEAD Secret 掃描、Git 歷史 Secret 掃描、Release Source／App ZIP 掃描、敏感檔名掃描、App binary 絕對路徑掃描與 SHA-256 驗證。任一項失敗就會在 Push branch、Tag 或 Release 前中止。GitHub Push Protection 則提供第二層遠端阻擋，避免已知格式的 Secret 被推送。

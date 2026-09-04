@@ -36,11 +36,12 @@
 | ETag conditional request 與 304 cache | PASS |
 | Request 不含 Authorization | PASS |
 | Request 不含 Cookie | PASS |
+| Public GitHub Release 無 Token實機查詢 | PASS |
 | Endpoint 固定為 GitHub latest Release | PASS |
 | Release URL 強制 HTTPS 與 Repository path 白名單 | PASS |
 | 快取不含憑證、Cookie 或 CSRF Token | PASS |
 
-Repository 在功能開發與資安稽核階段仍保持 Private，因此未驗證請求的即時 GitHub API 測試會在切換 Public 後執行；公開前不以 Token 規避此限制。
+Repository 完成資安稽核後已切換為 Public。`LiveUpdateCheckMain` 在明確移除 `GH_TOKEN` 與 `GITHUB_TOKEN` 的環境下，成功以應用程式實際 `GitHubReleaseClient` 讀取最新正式 Release；以本機版本 `0.1.0` 測試時正確辨識遠端 `0.1.1` 並回報 `updateAvailable = true`。
 
 ## 實機 Provider 診斷
 
