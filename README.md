@@ -103,7 +103,23 @@ chmod +x Scripts/build_app.sh Scripts/run_tests.sh
 ./Scripts/build_app.sh
 ```
 
-`build_app.sh` 會以 Swift 6、Release 最佳化與 warnings-as-errors 編譯，建立 `Info.plist`、組裝 `.app`、執行 ad-hoc codesign 驗證，最後輸出 ZIP。
+`build_app.sh` 會以 Swift 6、Release 最佳化與 warnings-as-errors 編譯，建立 `Info.plist`、組裝 `.app`、執行 ad-hoc codesign 驗證，最後輸出 ZIP。可用環境變數覆寫版本與 Build Number，例如 `VERSION=0.1.1 BUILD_NUMBER=3 ./Scripts/build_app.sh`。
+
+## 發布到 GitHub Releases
+
+本專案提供 Mac 本機發布腳本，並強制要求以 `--repo OWNER/REPOSITORY` 明確指定唯一目標。腳本會依序檢查 Git 狀態與 GitHub CLI 登入、執行完整測試、建立版本化 App／Source ZIP、產生 SHA-256 Checksums、推送分支與 Annotated Tag，再建立 GitHub Release。GitHub CLI 官方支援以 `--repo`、`--verify-tag`、`--notes-file` 與檔案參數建立包含 assets 的 Release。[9]
+
+第一次先執行不修改 GitHub 的 Dry Run：
+
+```bash
+./Scripts/publish_github_release.sh \
+  --repo Shawn66168/AI-Usage-Monitor \
+  --version 0.1.1 \
+  --create-repo \
+  --dry-run
+```
+
+確認通過後移除 `--dry-run` 即可正式建立 Private Repository 並發布。後續版本因 Repository 已存在，不需要 `--create-repo`。完整參數、防呆、Draft／Prerelease 與故障恢復方式請閱讀 [RELEASING.md](RELEASING.md)。
 
 ## 測試
 
@@ -131,3 +147,4 @@ ChatGPT 一般模型與 Manus 個人用量維持「官方未提供」或「等�
 [6]: https://www.postman.com/api-evangelist/anthropic/documentation/35240-161be0c1-64cc-4b47-91c9-725bc95b4451 "Anthropic Usage and Cost API Documentation"
 [7]: https://developers.openai.com/api/reference/resources/admin/subresources/organization/subresources/usage/methods/completions/ "OpenAI Organization Completions Usage API"
 [8]: https://developers.openai.com/api/reference/resources/admin/subresources/organization/subresources/usage/methods/costs/ "OpenAI Organization Costs API"
+[9]: https://cli.github.com/manual/gh_release_create "GitHub CLI Manual — gh release create"

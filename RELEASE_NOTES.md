@@ -1,27 +1,43 @@
-# AI Usage Monitor 0.1.0
+# AI Usage Monitor 0.1.1
 
-這是原生 macOS AI 用量監控應用程式的第一個可執行版本。此版本已完成 SwiftUI 選單列、完整儀表板、Claude／Claude Code、Codex、Antigravity、本機 Token 與 Context、低用量通知、登入自動啟動、Keychain 及 Anthropic／OpenAI 管理 API 架構。
+本版本新增一套在 Mac 本機執行的 GitHub Releases 自動發布流程，讓每次版本發布都能使用相同的測試、打包、標籤與資產驗證標準。應用程式核心功能與 0.1.0 相同，主要更新集中於 Release 工程與可重複發布能力。
 
-## 可用整合
+## 新增功能
 
-| 服務 | 0.1.0 狀態 |
+| 功能 | 說明 |
 |---|---|
-| Claude／Claude Code | 可即時顯示五小時、七天、Token、Context、模型與重置時間。 |
-| Codex | 可顯示五小時、每週、Token、最新 session Context 與重置時間。 |
-| Antigravity | IDE 執行時可顯示各模型或共享 bucket 的 quota 與重置時間。 |
-| ChatGPT 一般模型 | 顯示「官方未提供」，不使用 Cookie 爬取。 |
-| Manus | 顯示「等待官方資料來源」，不擷取帳戶點數。 |
-| Anthropic API | 可選 Admin Key，顯示近七天 Token 與本月 API 組織費用。 |
-| OpenAI API | 可選 Organization Admin Key，顯示近七天 Token 與本月 API 組織費用。 |
+| 參數化發布腳本 | 新增 `Scripts/publish_github_release.sh`，強制以 `--repo OWNER/REPOSITORY` 指定唯一 GitHub 目標。 |
+| Repository 建立 | 目標不存在時，只有明確加入 `--create-repo` 才會建立；預設為 Private。 |
+| Dry Run | 執行完整測試、打包與 Checksum，但不建立 Repository、不 Push、不建立 Tag 或 Release。 |
+| 版本化打包 | `build_app.sh` 支援 `VERSION` 與 `BUILD_NUMBER`，並同步寫入 App `Info.plist`。 |
+| 發布資產 | 自動產生 Apple Silicon App ZIP、從 committed `HEAD` 建立的 Source ZIP，以及 SHA-256 Checksum 清單。 |
+| Git／Release 防呆 | 拒絕 dirty worktree、Detached HEAD、舊版 Release Notes、衝突 Local／Remote Tag，以及已存在的 GitHub Release。 |
+| Draft／Prerelease | 支援 `--draft`、`--prerelease`，包含 `-` 的 SemVer 會自動標示為 Prerelease。 |
+| 可重跑設計 | 分支或 Tag 已部分推送時，可在指向同一 commit 的前提下安全重跑。 |
 
-## 安裝
+## 首次發布指令
 
-解壓縮 `AI-Usage-Monitor-macOS-arm64-v0.1.0.zip`，將 **AI Usage Monitor.app** 移到 `/Applications` 後開啟。此版本為 ad-hoc 簽章，適合本機使用；首次啟動若出現 Gatekeeper 提示，請以 Finder 右鍵選擇「打開」。
+先執行不修改 GitHub 的 Dry Run：
+
+```bash
+./Scripts/publish_github_release.sh \
+  --repo Shawn66168/AI-Usage-Monitor \
+  --version 0.1.1 \
+  --create-repo \
+  --dry-run
+```
+
+確認通過後移除 `--dry-run`，即可建立 Private Repository 並發布：
+
+```bash
+./Scripts/publish_github_release.sh \
+  --repo Shawn66168/AI-Usage-Monitor \
+  --version 0.1.1 \
+  --create-repo
+```
 
 ## 驗證狀態
 
-Release build 已通過 Swift 6 warnings-as-errors、五組單元測試、實機 provider 診斷、Keychain round trip、敏感路徑掃描、硬編碼 secret 掃描、Info.plist lint、codesign verify 與 Launch Services 啟動測試。
+發布腳本已通過 Bash 語法檢查、完整 Dry Run、缺少 `--repo`、Repository 格式錯誤、版本含錯誤 `v` 前綴、Release Notes 版本不一致、Local Tag 指向錯誤 commit、Source ZIP 禁止路徑、Info.plist 版本、Build Number 及 SHA-256 回驗。
 
-## 已知限制
-
-Codex 的七天 Token 統計只包含此 Mac 的本機 session history。Antigravity 需保持 IDE 執行才能刷新。ChatGPT 一般模型與 Manus 在官方提供穩定、允許自動存取的個人用量介面前，不會自動讀取。
+完整操作方式與故障恢復請閱讀 `RELEASING.md`。

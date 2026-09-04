@@ -67,3 +67,22 @@ cd "/Users/shawn/Projects/AI Useing/AIUsageMonitor"
 ./Scripts/run_tests.sh
 ./Scripts/build_app.sh
 ```
+
+## GitHub Releases 發布自動化驗證
+
+**驗證日期：2026-09-04**
+
+| 測試情境 | 結果 | 預期保護 |
+|---|---:|---|
+| 完整 `--dry-run` | PASS | 執行測試、打包、Source ZIP 與 SHA-256，但不改變 GitHub |
+| 缺少 `--repo` | PASS | 立即中止，不推測其他 Repository |
+| Repository 格式錯誤 | PASS | 只接受 `OWNER/REPOSITORY` |
+| `--version` 含錯誤 `v` 前綴 | PASS | 要求以 `0.1.1` 格式傳入，由腳本建立 `v0.1.1` Tag |
+| Release Notes 未包含目標版本 | PASS | 阻止使用舊版發布說明 |
+| Local Tag 指向其他 commit | PASS | 不移動、不覆寫既有 Tag |
+| Source ZIP 禁止路徑 | PASS | 不含 `Build/`、`.build/` 或 `.git/` |
+| Info.plist 版本與 Build Number | PASS | `0.1.1` 與 Git commit count 正確寫入 |
+| SHA-256 回驗 | PASS | App ZIP 與 Source ZIP 均驗證成功 |
+| Git 工作目錄 | PASS | Dry Run 後仍保持乾淨，Build 產物不被 Git 追蹤 |
+
+正式發布屬於會改變 GitHub 遠端狀態的操作，因此本次只執行 Dry Run，沒有建立 `Shawn66168/AI-Usage-Monitor` Repository、Tag 或 Release。
