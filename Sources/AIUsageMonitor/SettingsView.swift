@@ -318,7 +318,7 @@ private struct DataSourceSettingsView: View {
                     placeholder: "OpenAI Organization Admin Key",
                     store: store
                 )
-                Text("金鑰只會寫入此 Mac 的 Keychain。管理 API 顯示的是 API 組織用量與費用，不是個人 Claude／ChatGPT 訂閱額度。")
+                Text("金鑰只會寫入此 Mac 的 Keychain。管理 API 顯示的是 API 組織用量與費用，不是個人 Claude／ChatGPT 訂閱額度。Anthropic 與 OpenAI Admin API 最多每 15 分鐘自動刷新一次，本機用量仍依一般頻率更新。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -420,7 +420,9 @@ private struct CredentialEditor: View {
             input = ""
             isConfigured = true
             feedback = "已儲存，正在刷新 API 組織用量。"
-            Task { await store.refreshAll() }
+            Task {
+                await store.refreshAll(forceProviderKinds: [kind.serviceKind])
+            }
         } catch {
             feedback = "儲存失敗：\(error.localizedDescription)"
         }
@@ -432,7 +434,9 @@ private struct CredentialEditor: View {
             input = ""
             isConfigured = false
             feedback = "已從 Keychain 移除。"
-            Task { await store.refreshAll() }
+            Task {
+                await store.refreshAll(forceProviderKinds: [kind.serviceKind])
+            }
         } catch {
             feedback = "移除失敗：\(error.localizedDescription)"
         }

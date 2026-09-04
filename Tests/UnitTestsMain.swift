@@ -10,9 +10,10 @@ struct UnitTestsMain {
         await testClaudeFixture(failures: &failures)
         await testProcessRunner(failures: &failures)
         testKeychainRoundTrip(failures: &failures)
+        testProviderRefreshGate(failures: &failures)
 
         if failures.isEmpty {
-            print("PASS: 5 test groups")
+            print("PASS: 6 test groups")
             exit(0)
         }
 
@@ -140,6 +141,96 @@ struct UnitTestsMain {
         } catch {
             failures.append("Keychain 測試失敗：\(error.localizedDescription)")
         }
+    }
+
+    private static func testProviderRefreshGate(failures: inout [String]) {
+        let start = Date(timeIntervalSince1970: 1_800_000_000)
+        var gate = ProviderRefreshGate()
+
+        expect(
+            ProviderRefreshInterval.adminAPI == 15 * 60,
+            "Admin API 最小刷新間隔應為 15 分鐘",
+            failures: &failures
+        )
+        expect(
+            AnthropicAdminProvider().minimumRefreshInterval == 15 * 60,
+            "Anthropic Admin Provider 應採 15 分鐘刷新間隔",
+            failures: &failures
+        )
+        expect(
+            OpenAIAdminProvider().minimumRefreshInterval == 15 * 60,
+            "OpenAI Admin Provider 應採 15 分鐘刷新間隔",
+            failures: &failures
+        )
+        expect(
+            gate.shouldRefresh(
+                .anthropicAPI,
+                minimumInterval: ProviderRefreshInterval.adminAPI,
+                at: start
+            ),
+            "Anthropic Admin API 首次刷新應允許",
+            failures: &failures
+        )
+        expect(
+            !gate.shouldRefresh(
+                .anthropicAPI,
+                minimumInterval: ProviderRefreshInterval.adminAPI,
+                at: start.addingTimeInterval(899)
+            ),
+            "Anthropic Admin API 在 15 分鐘前不應再次刷新",
+            failures: &failures
+        )
+        expect(
+            gate.nextAllowedAt(
+                for: .anthropicAPI,
+                minimumInterval: ProviderRefreshInterval.adminAPI
+            ) == start.addingTimeInterval(900),
+            "Anthropic Admin API 下一次允許時間應為 15 分鐘後",
+            failures: &failures
+        )
+        expect(
+            gate.shouldRefresh(
+                .anthropicAPI,
+                minimumInterval: ProviderRefreshInterval.adminAPI,
+                at: start.addingTimeInterval(900)
+            ),
+            "Anthropic Admin API 到 15 分鐘時應允許刷新",
+            failures: &failures
+        )
+        expect(
+            gate.shouldRefresh(
+                .openAIAPI,
+                minimumInterval: ProviderRefreshInterval.adminAPI,
+                at: start
+            ),
+            "OpenAI Admin API 應使用獨立刷新閘門",
+            failures: &failures
+        )
+
+        var forcedGate = ProviderRefreshGate()
+        _ = forcedGate.shouldRefresh(
+            .openAIAPI,
+            minimumInterval: ProviderRefreshInterval.adminAPI,
+            at: start
+        )
+        expect(
+            forcedGate.shouldRefresh(
+                .openAIAPI,
+                minimumInterval: ProviderRefreshInterval.adminAPI,
+                at: start.addingTimeInterval(60),
+                force: true
+            ),
+            "管理憑證變更後應允許強制刷新對應 API",
+            failures: &failures
+        )
+
+        var localGate = ProviderRefreshGate()
+        expect(
+            localGate.shouldRefresh(.claude, minimumInterval: 0, at: start)
+                && localGate.shouldRefresh(.claude, minimumInterval: 0, at: start),
+            "本機 Provider 應維持每輪刷新",
+            failures: &failures
+        )
     }
 
     private static func expect(

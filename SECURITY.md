@@ -13,7 +13,7 @@ AI Usage Monitor 採用 **local-first、read-only、data minimization** 的安�
 | ChatGPT／Manus | 不擷取 Cookie、不解析 Session Storage、不爬取帳戶頁面。 |
 | 快取 | Application Support 只儲存正規化後的非敏感 snapshot；更新快取只含公開 Release metadata 與 ETag，不儲存原始用量回應或憑證。 |
 | GitHub 更新 | 使用隔離且停用 Cookie 的 ephemeral URLSession，只呼叫固定 Public GitHub latest Release endpoint，不附帶 Authorization；Release 頁面必須通過 `https://github.com/Shawn66168/AI-Usage-Monitor/releases/` 白名單。 |
-| 網路 | 設定 Admin Key 後才呼叫 Anthropic/OpenAI 官方 Usage／Cost endpoint；GitHub 更新檢查只讀取公開 metadata，不傳送 AI 用量、裝置 ID 或使用者名稱。 |
+| 網路 | 設定 Admin Key 後才呼叫 Anthropic/OpenAI 官方 Usage／Cost endpoint；兩者各自具有 15 分鐘最小刷新間隔。GitHub 更新檢查只讀取公開 metadata，不傳送 AI 用量、裝置 ID 或使用者名稱。 |
 | 日誌 | Provider 錯誤只顯示摘要，不輸出 request header、完整 server process command 或原始對話。 |
 
 ## 威脅模型
@@ -28,9 +28,11 @@ GitHub Release 的標題與說明視為未受信任的公開文字，只以 Swif
 
 管理金鑰屬於高敏感資料。請從 1Password 複製後直接貼入應用程式設定，不要貼到聊天室、Issue、Commit、截圖或一般文字檔。Anthropic 應使用最小必要權限的 Admin Key；OpenAI 應使用 Organization Admin Key。若懷疑洩漏，應立即在供應商控制台撤銷並重新建立。
 
+一般背景或手動「更新用量」不會繞過 Admin API 的 15 分鐘限制；只有使用者新增或移除對應 Keychain 憑證時，才會對該 Provider 強制刷新一次，以立即反映設定狀態。App 啟動時若已有快取，會以快照時間延續限制，避免每次重開 App 都重新呼叫管理 API。
+
 ## 驗證
 
-`Scripts/run_tests.sh` 會執行硬編碼 Secret pattern 掃描、Git 完整歷史掃描、敏感檔名掃描、個人絕對路徑掃描，以及對 `.credentials.json`、Session Storage、transcript、history 與對話 payload 讀取模式的禁止項目掃描。`Scripts/publish_github_release.sh` 在任何 GitHub 推送前還會解壓本次 App／Source ZIP，重新掃描 Secret、憑證檔、Cookie、個人路徑與 binary build path；任一項失敗便中止。這些自動檢查不能取代第三方專業安全稽核，但可阻擋常見洩漏與回歸。
+`Scripts/run_tests.sh` 會驗證 15 分鐘 Provider 刷新閘門、強制刷新例外與本機 Provider 不受限行為，並執行硬編碼 Secret pattern 掃描、Git 完整歷史掃描、敏感檔名掃描、個人絕對路徑掃描，以及對 `.credentials.json`、Session Storage、transcript、history 與對話 payload 讀取模式的禁止項目掃描。`Scripts/publish_github_release.sh` 在任何 GitHub 推送前還會解壓本次 App／Source ZIP，重新掃描 Secret、憑證檔、Cookie、個人路徑與 binary build path；任一項失敗便中止。這些自動檢查不能取代第三方專業安全稽核，但可阻擋常見洩漏與回歸。
 
 ## 回報安全問題
 

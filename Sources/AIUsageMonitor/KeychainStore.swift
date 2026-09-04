@@ -11,6 +11,13 @@ enum CredentialKind: String, CaseIterable, Sendable {
         case .openAIAdminKey: "OpenAI Admin Key"
         }
     }
+
+    var serviceKind: ServiceKind {
+        switch self {
+        case .anthropicAdminKey: .anthropicAPI
+        case .openAIAdminKey: .openAIAPI
+        }
+    }
 }
 
 struct KeychainStore: Sendable {

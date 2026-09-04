@@ -19,6 +19,7 @@ swiftc \
   -parse-as-library \
   "${COMMON_SOURCES[@]}" \
   "$ROOT_DIR/Sources/AIUsageMonitor/KeychainStore.swift" \
+  "$ROOT_DIR/Sources/AIUsageMonitor/AdminAPIProviders.swift" \
   "$ROOT_DIR/Tests/UnitTestsMain.swift" \
   -o "$BUILD_DIR/AIUsageUnitTests" \
   -framework SwiftUI \

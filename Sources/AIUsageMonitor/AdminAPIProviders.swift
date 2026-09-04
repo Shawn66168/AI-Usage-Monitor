@@ -2,6 +2,7 @@ import Foundation
 
 struct AnthropicAdminProvider: UsageProvider {
     let kind: ServiceKind = .anthropicAPI
+    let minimumRefreshInterval = ProviderRefreshInterval.adminAPI
     private let keychain: KeychainStore
 
     init(keychain: KeychainStore = KeychainStore()) {
@@ -114,6 +115,7 @@ struct AnthropicAdminProvider: UsageProvider {
 
 struct OpenAIAdminProvider: UsageProvider {
     let kind: ServiceKind = .openAIAPI
+    let minimumRefreshInterval = ProviderRefreshInterval.adminAPI
     private let keychain: KeychainStore
 
     init(keychain: KeychainStore = KeychainStore()) {

@@ -2,19 +2,19 @@
 
 **測試日期：2026-09-04**  
 **平台：macOS 26.6.2、Apple Silicon arm64、Swift 6.3.3**  
-**版本：0.2.0**
+**版本：0.2.1**
 
 ## 結論
 
-核心功能、GitHub 更新提示、資料解析、安全控制與 Release 打包均已通過自動化驗證。Claude 與 Codex 已以此 Mac 的真實本機資料完成整合測試；Antigravity 在未啟動時正確回報 `unavailable`；ChatGPT 與 Manus 正確維持受限狀態；未設定管理金鑰時，Anthropic API 與 OpenAI API 正確回報 `needsConfiguration`。
+核心功能、Admin API 15 分鐘刷新閘門、GitHub 更新提示、資料解析、安全控制與 Release 打包均已通過自動化驗證。Claude 與 Codex 已以此 Mac 的真實本機資料完成整合測試；Antigravity 在未啟動時正確回報 `unavailable`；ChatGPT 與 Manus 正確維持受限狀態；未設定管理金鑰時，Anthropic API 與 OpenAI API 正確回報 `needsConfiguration`。
 
-> **整體結果：PASS。** 0.2.0 Release `.app` 已由 macOS Launch Services 啟動，版本、bundle identifier、arm64 binary、Info.plist、ad-hoc codesign、App／Source ZIP、SHA-256 與敏感資訊掃描均通過驗證。
+> **整體結果：PASS。** 0.2.1 Release `.app` 已由 macOS Launch Services 啟動，版本、bundle identifier、arm64 binary、Info.plist、ad-hoc codesign、App／Source ZIP、SHA-256 與敏感資訊掃描均通過驗證。
 
 ## 自動化測試
 
 | 測試 | 結果 | 驗證內容 |
 |---|---:|---|
-| 核心單元測試 | PASS（5 組） | Quota 正規化、日期解析、Claude Fixture、ProcessRunner、Keychain round trip。 |
+| 核心單元測試 | PASS（6 組） | Quota 正規化、日期解析、Claude Fixture、ProcessRunner、Keychain round trip、Admin API 刷新閘門。 |
 | 更新檢查測試 | PASS（7 組） | SemVer、GitHub payload、版本提示、忽略版本、ETag、Prerelease、cache 與 request security。 |
 | Swift 6 Release 編譯 | PASS | `-warnings-as-errors`、whole-module optimization，無 warning 或 error。 |
 | 隱私禁止項掃描 | PASS | 未發現 `.credentials.json`、Session Storage、transcript、history 或對話 payload 讀取。 |
@@ -22,6 +22,19 @@
 | Git 完整歷史 Secret 掃描 | PASS | 所有 Commit 未發現金鑰或 Token pattern。 |
 | 敏感檔名掃描 | PASS | 未追蹤 `.env`、credentials、Cookie、PEM、P8、P12、SSH key 或 provisioning profile。 |
 | 個人絕對路徑掃描 | PASS | 目前可發布原始碼未包含 `/Users/...` 或 `/home/...`。 |
+
+## Admin API 15 分鐘刷新驗證
+
+| 情境 | 結果 |
+|---|---:|
+| Admin API 預設間隔為 900 秒 | PASS |
+| Anthropic 首次刷新 | PASS |
+| 899 秒時拒絕重複刷新 | PASS |
+| 900 秒時允許下一次刷新 | PASS |
+| Anthropic／OpenAI 各自獨立計時 | PASS |
+| Keychain 憑證新增／移除可強制刷新對應 API | PASS |
+| Claude 等本機 Provider 仍允許每輪刷新 | PASS |
+| 冷啟動以既有快照時間延續保護 | PASS（程式結構驗證） |
 
 ## GitHub 更新檢查驗證
 
@@ -60,7 +73,7 @@ Repository 完成資安稽核後已切換為 Public。`LiveUpdateCheckMain` 在�
 | 項目 | 結果 |
 |---|---:|
 | Bundle identifier `com.xing.ai-usage-monitor` | PASS |
-| `CFBundleShortVersionString` 為 `0.2.0` | PASS |
+| `CFBundleShortVersionString` 為 `0.2.1` | PASS |
 | Mach-O arm64 | PASS |
 | Info.plist lint | PASS |
 | ad-hoc codesign `--deep --strict` | PASS |
@@ -76,9 +89,9 @@ Repository 完成資安稽核後已切換為 Public。`LiveUpdateCheckMain` 在�
 
 ```text
 Build/AI Usage Monitor.app
-Build/AI-Usage-Monitor-macOS-arm64-v0.2.0.zip
-Build/AI-Usage-Monitor-Source-v0.2.0.zip
-Build/SHA256SUMS-v0.2.0.txt
+Build/AI-Usage-Monitor-macOS-arm64-v0.2.1.zip
+Build/AI-Usage-Monitor-Source-v0.2.1.zip
+Build/SHA256SUMS-v0.2.1.txt
 ```
 
 ## 視覺驗證限制
@@ -90,7 +103,7 @@ Build/SHA256SUMS-v0.2.0.txt
 ```bash
 cd "/path/to/AIUsageMonitor"
 ./Scripts/run_tests.sh
-VERSION=0.2.0 BUILD_NUMBER=5 ./Scripts/build_app.sh
+VERSION=0.2.1 BUILD_NUMBER=8 ./Scripts/build_app.sh
 ./Scripts/security_audit.sh --artifacts Build
 ```
 

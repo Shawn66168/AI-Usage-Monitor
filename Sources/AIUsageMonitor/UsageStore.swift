@@ -18,6 +18,7 @@ final class UsageStore: ObservableObject {
     private let snapshotCache: SnapshotCache
     private let preferencesStore: PreferencesStore
     private let notificationManager: UsageNotificationManager
+    private var refreshGate = ProviderRefreshGate()
     private var refreshTask: Task<Void, Never>?
     private var autoRefreshStarted = false
 
@@ -48,6 +49,12 @@ final class UsageStore: ObservableObject {
                 status: ProviderStatus(state: .loading, message: "準備讀取用量資料"),
                 source: "尚未取得資料"
             )
+        }
+
+        for provider in providers where provider.minimumRefreshInterval > 0 {
+            if let cachedSnapshot = cachedByKind[provider.kind] {
+                refreshGate.seed(provider.kind, lastAttemptAt: cachedSnapshot.fetchedAt)
+            }
         }
     }
 
@@ -82,12 +89,20 @@ final class UsageStore: ObservableObject {
         refreshTask = nil
     }
 
-    func refreshAll() async {
+    func refreshAll(forceProviderKinds: Set<ServiceKind> = []) async {
         guard !isRefreshing else { return }
         isRefreshing = true
         defer { isRefreshing = false }
 
-        let providers = self.providers
+        let refreshStartedAt = Date()
+        let providers = self.providers.filter { provider in
+            refreshGate.shouldRefresh(
+                provider.kind,
+                minimumInterval: provider.minimumRefreshInterval,
+                at: refreshStartedAt,
+                force: forceProviderKinds.contains(provider.kind)
+            )
+        }
         var fetched: [AIServiceSnapshot] = []
 
         await withTaskGroup(of: AIServiceSnapshot.self) { group in
@@ -143,6 +158,16 @@ final class UsageStore: ObservableObject {
 
     func snapshot(for kind: ServiceKind) -> AIServiceSnapshot? {
         snapshots.first { $0.id == kind }
+    }
+
+    func nextAllowedRefresh(for kind: ServiceKind) -> Date? {
+        guard let provider = providers.first(where: { $0.kind == kind }) else {
+            return nil
+        }
+        return refreshGate.nextAllowedAt(
+            for: kind,
+            minimumInterval: provider.minimumRefreshInterval
+        )
     }
 
     private func restartAutoRefreshIfNeeded() {

@@ -1,8 +1,65 @@
 import Foundation
 
+enum ProviderRefreshInterval {
+    static let everyCycle: TimeInterval = 0
+    static let adminAPI: TimeInterval = 15 * 60
+}
+
 protocol UsageProvider: Sendable {
     var kind: ServiceKind { get }
+    var minimumRefreshInterval: TimeInterval { get }
     func fetchSnapshot() async -> AIServiceSnapshot
+}
+
+extension UsageProvider {
+    var minimumRefreshInterval: TimeInterval {
+        ProviderRefreshInterval.everyCycle
+    }
+}
+
+struct ProviderRefreshGate {
+    private var lastAttemptAt: [ServiceKind: Date] = [:]
+
+    mutating func seed(_ kind: ServiceKind, lastAttemptAt date: Date) {
+        lastAttemptAt[kind] = date
+    }
+
+    mutating func shouldRefresh(
+        _ kind: ServiceKind,
+        minimumInterval: TimeInterval,
+        at date: Date,
+        force: Bool = false
+    ) -> Bool {
+        let normalizedInterval = max(0, minimumInterval)
+        guard normalizedInterval > 0 else { return true }
+
+        if force {
+            lastAttemptAt[kind] = date
+            return true
+        }
+
+        guard let previous = lastAttemptAt[kind] else {
+            lastAttemptAt[kind] = date
+            return true
+        }
+
+        guard date.timeIntervalSince(previous) >= normalizedInterval else {
+            return false
+        }
+
+        lastAttemptAt[kind] = date
+        return true
+    }
+
+    func nextAllowedAt(
+        for kind: ServiceKind,
+        minimumInterval: TimeInterval
+    ) -> Date? {
+        guard minimumInterval > 0, let previous = lastAttemptAt[kind] else {
+            return nil
+        }
+        return previous.addingTimeInterval(minimumInterval)
+    }
 }
 
 enum ProviderError: LocalizedError, Sendable {

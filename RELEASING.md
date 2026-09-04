@@ -41,16 +41,16 @@ git log -1 --oneline
 gh auth status
 ```
 
-接著更新 `RELEASE_NOTES.md`，內容必須明確包含要發布的版本號。例如要發布 `0.2.0`，文件中必須出現 `0.2.0`。這是腳本的版本一致性防呆。
+接著更新 `RELEASE_NOTES.md`，內容必須明確包含要發布的版本號。例如要發布 `0.2.1`，文件中必須出現 `0.2.1`。這是腳本的版本一致性防呆。
 
 ## 先執行 Dry Run
 
-發布 `0.2.0` 前先執行：
+發布 `0.2.1` 前先執行：
 
 ```bash
 ./Scripts/publish_github_release.sh \
   --repo Shawn66168/AI-Usage-Monitor \
-  --version 0.2.0 \
+  --version 0.2.1 \
   --dry-run
 ```
 
@@ -59,31 +59,31 @@ Dry Run **仍會執行測試與本機打包**，用來確認實際 Release 資�
 成功後應在 `Build/` 看到以下檔案：
 
 ```text
-AI-Usage-Monitor-macOS-arm64-v0.2.0.zip
-AI-Usage-Monitor-Source-v0.2.0.zip
-SHA256SUMS-v0.2.0.txt
+AI-Usage-Monitor-macOS-arm64-v0.2.1.zip
+AI-Usage-Monitor-Source-v0.2.1.zip
+SHA256SUMS-v0.2.1.txt
 ```
 
 可用下列方式重新驗證下載資產：
 
 ```bash
 cd Build
-shasum -a 256 -c SHA256SUMS-v0.2.0.txt
+shasum -a 256 -c SHA256SUMS-v0.2.1.txt
 ```
 
 ## 正式發布 Public 版本
 
-`0.2.0` 的 App 會以未驗證請求讀取 Public GitHub Release metadata，因此 Repository visibility 必須在完成安全稽核後另行改為 Public。`publish_github_release.sh` 刻意不自動變更既有 Repository visibility，避免無意公開私有程式碼。
+`0.2.1` 的 App 會以未驗證請求讀取 Public GitHub Release metadata，因此 Repository visibility 必須在完成安全稽核後另行改為 Public。`publish_github_release.sh` 刻意不自動變更既有 Repository visibility，避免無意公開私有程式碼。
 
 確認 Repository 已公開且 Dry Run 通過後，移除 `--dry-run`：
 
 ```bash
 ./Scripts/publish_github_release.sh \
   --repo Shawn66168/AI-Usage-Monitor \
-  --version 0.2.0
+  --version 0.2.1
 ```
 
-腳本會推送目前分支、建立並推送 `v0.2.0` Annotated Tag，最後發布 App ZIP、Source ZIP 與 SHA-256 Checksums。若建立全新的 Public Repository，才使用 `--create-repo --visibility public`；既有 Repository 不應加入 `--create-repo`。
+腳本會推送目前分支、建立並推送 `v0.2.1` Annotated Tag，最後發布 App ZIP、Source ZIP 與 SHA-256 Checksums。若建立全新的 Public Repository，才使用 `--create-repo --visibility public`；既有 Repository 不應加入 `--create-repo`。
 
 ## Draft 與 Prerelease
 
@@ -92,11 +92,11 @@ shasum -a 256 -c SHA256SUMS-v0.2.0.txt
 ```bash
 ./Scripts/publish_github_release.sh \
   --repo Shawn66168/AI-Usage-Monitor \
-  --version 0.2.0-beta.1 \
+  --version 0.3.0-beta.1 \
   --draft
 ```
 
-只要版本包含 `-`，例如 `0.2.0-beta.1`，腳本會自動加入 Prerelease；也可對一般版本明確加入 `--prerelease`。
+只要版本包含 `-`，例如 `0.3.0-beta.1`，腳本會自動加入 Prerelease；也可對一般版本明確加入 `--prerelease`。
 
 ## 完整參數
 

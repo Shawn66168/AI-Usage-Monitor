@@ -34,7 +34,7 @@ Claude 的網頁、桌面與 Claude Code 訂閱用量共用限制；Claude Code 
 | Providers | `ClaudeProvider`、`CodexProvider`、`AntigravityProvider`、`UnsupportedProvider` | 封裝各官方客戶端或 API 的資料差異，統一輸出 snapshot |
 | Infrastructure | `ProcessRunner`、`SnapshotCache`、`KeychainStore`、`LaunchAtLoginManager`、`NotificationManager` | 執行白名單本機命令、持久化非敏感資料、保護 API Key、登入啟動與系統通知 |
 
-Provider 介面採 `async throws`，每個 provider 的失敗彼此隔離。`UsageStore` 每 60 秒刷新一次本機來源，每 5 分鐘刷新需要網路或 app-server 的來源；使用者也可手動刷新。連續錯誤採漸進退避，避免高頻輪詢。
+Provider 介面採 `async` 並回傳含狀態的 snapshot，每個 provider 的失敗彼此隔離。`UsageStore` 依使用者設定每 30–900 秒刷新本機來源；Anthropic 與 OpenAI Admin provider 另宣告 900 秒最小間隔，手動「更新用量」也不會繞過。HTTP 429 的 `Retry-After` 與漸進退避尚未實作，列為後續強化項目。
 
 ## 4. 核心資料模型
 
@@ -79,6 +79,8 @@ struct QuotaWindow: Identifiable, Codable, Sendable {
 
 設定頁提供 Anthropic Admin Key 與 OpenAI Admin Key 的可選欄位。新增或更新時直接寫入 Keychain；畫面只顯示是否已設定，不回填完整金鑰。網路請求使用 `URLSession`、HTTPS、合理 timeout 與最小權限端點。管理 API 只補充 API 組織用量，畫面會清楚標示「API 組織」以避免與個人 Claude／ChatGPT 訂閱額度混淆。
 
+`UsageProvider.minimumRefreshInterval` 讓各 provider 宣告自己的最低間隔。`ProviderRefreshGate` 以 `ServiceKind` 分別保存最後嘗試時間，App 冷啟動時使用快取 snapshot 的 `fetchedAt` 初始化；因此重新啟動 App 也不會重置 15 分鐘保護。新增或移除管理憑證時，設定頁只對相應 provider 強制刷新一次，以立即反映 Keychain 狀態。
+
 建議使用者從 1Password 取得憑證後直接貼入 Keychain 設定欄位，且不要將任何金鑰寫入專案 `.env`、原始碼或 Git 歷史。
 
 ## 7. 選單列、通知與登入啟動
@@ -97,7 +99,7 @@ struct QuotaWindow: Identifiable, Codable, Sendable {
 |---|---|
 | Parser 單元測試 | Claude JSON、Codex JSON-RPC、Codex token_count、Antigravity quota 回應、日期與百分比邊界 |
 | 安全測試 | 確認不讀取 prompt/response、log 不出現 CSRF/API key、快取不含 credentials |
-| Provider 容錯 | 檔案不存在、JSON 截斷、IDE 關閉、CLI 未登入、網路 timeout、API 401/429 |
+| Provider 容錯 | 檔案不存在、JSON 截斷、IDE 關閉、CLI 未登入、網路 timeout、API 401；429／Retry-After 為後續測試項目 |
 | UI 狀態 | loading、正常、stale、部分可用、未支援、低用量、重置後恢復 |
 | 實機整合 | Claude 現有快照、Codex app-server 與 session JSONL、Antigravity 啟動後 loopback 讀取 |
 | 發行驗證 | `swift test`、Release build、`.app` bundle、codesign 驗證、啟動與登入項目狀態 |

@@ -15,10 +15,10 @@
 | Antigravity | 完成 | Antigravity 執行時，透過本機 Language Server 取得模型 quota、剩餘比例與重置時間；IDE 關閉時顯示離線狀態。 |
 | ChatGPT 一般模型 | 受官方限制 | 個人 ChatGPT 模型沒有穩定公開用量 API，因此顯示「官方未提供」，不擷取 Cookie。 |
 | Manus | 保留正式連接器 | 顯示「等待官方資料來源」，不自動擷取帳戶點數或登入資料；正式介面需向 [Manus 說明中心](https://help.manus.im) 確認。 |
-| Anthropic／OpenAI 管理 API | 完成 | 可在設定中加入 Admin Key，以 Keychain 保護，顯示近七天 Token 與本月 API 組織費用。 |
+| Anthropic／OpenAI 管理 API | 完成 | 可在設定中加入 Admin Key，以 Keychain 保護；顯示近七天 Token 與本月費用，並限制為每 15 分鐘刷新一次。 |
 | 低用量通知 | 完成 | 剩餘用量首次低於門檻時發送 macOS 通知，同一 quota 在同一重置週期不重複提醒。 |
 | 登入自動啟動 | 完成 | 使用 `SMAppService.mainApp` 註冊原生 macOS 登入項目，並顯示系統實際狀態。 |
-| 自動刷新與快取 | 完成 | 預設每 60 秒更新；各 provider 失敗互不影響，並保留最近成功的非敏感快照。 |
+| 自動刷新與快取 | 完成 | 本機 provider 預設每 60 秒更新；Admin API 每 15 分鐘更新，各 provider 失敗互不影響並保留最近成功快照。 |
 | GitHub 版本提示 | 完成 | 每 6 小時唯讀檢查 Public GitHub Release；有新版時選單列顯示 `NEW`，可查看 Release 或略過版本。 |
 
 Claude 的網頁、桌面與 Claude Code 訂閱使用相同的用量限制，Claude Code 也提供方案用量與重置資訊。[1] Codex 官方文件將 Codex 用量頁與 `/status` 列為查看 allowance 與 reset time 的正式方法。[2] Antigravity 官方 CLI `/usage` 會從後端刷新各模型 quota，而 Pro／Ultra 方案另有五小時與每週限制。[3] [4]
@@ -45,7 +45,7 @@ Build/AI Usage Monitor.app
 可攜式安裝包位於：
 
 ```text
-Build/AI-Usage-Monitor-macOS-arm64-v0.2.0.zip
+Build/AI-Usage-Monitor-macOS-arm64-v0.2.1.zip
 ```
 
 先解壓縮 ZIP，將 **AI Usage Monitor.app** 拖曳到 `/Applications`，再以 Finder 開啟。此版本使用 ad-hoc 簽章，適合此 Mac 的本機測試與使用，但沒有 Apple Developer ID notarization；若 Gatekeeper 顯示提示，可對 App 按右鍵選擇「打開」，或依 macOS「隱私權與安全性」畫面核准。正式對外散布版本應改用 Developer ID 簽章與 Apple notarization。[5]
@@ -72,6 +72,8 @@ Build/AI-Usage-Monitor-macOS-arm64-v0.2.0.zip
 在「設定 → 資料來源」勾選「顯示 API 組織用量卡片」，再加入管理金鑰。Anthropic 需要 `sk-ant-admin...` 類型的 Admin Key，一般 `sk-ant-api...` key 無權存取 Usage／Cost Admin API。OpenAI 則需要 Organization Admin Key；官方 Completions Usage API 與 Costs API 都使用此管理權限。[6] [7] [8]
 
 應用程式不會把 Key 寫進 `.env`、JSON、UserDefaults 或 Git。輸入後直接存入 Keychain，設定畫面只顯示「已安全儲存」，不回填完整內容。建議從 1Password 複製後直接貼入設定欄位。
+
+Anthropic 與 OpenAI Admin API 具有獨立的 **15 分鐘最小刷新間隔**，不受設定頁 30 秒至 15 分鐘的本機更新頻率影響。使用者按下選單列「更新用量」時仍會刷新本機資料，但不會繞過 Admin API 的安全間隔；只有新增或移除對應 Keychain 憑證時，才強制刷新一次該管理 API。
 
 ### App 更新提示
 
@@ -111,7 +113,7 @@ chmod +x Scripts/build_app.sh Scripts/run_tests.sh Scripts/security_audit.sh
 ./Scripts/build_app.sh
 ```
 
-`build_app.sh` 會以 Swift 6、Release 最佳化與 warnings-as-errors 編譯，建立 `Info.plist`、組裝 `.app`、執行 ad-hoc codesign 驗證，最後輸出 ZIP。可用環境變數覆寫版本與 Build Number，例如 `VERSION=0.2.0 BUILD_NUMBER=5 ./Scripts/build_app.sh`。
+`build_app.sh` 會以 Swift 6、Release 最佳化與 warnings-as-errors 編譯，建立 `Info.plist`、組裝 `.app`、執行 ad-hoc codesign 驗證，最後輸出 ZIP。可用環境變數覆寫版本與 Build Number，例如 `VERSION=0.2.1 BUILD_NUMBER=8 ./Scripts/build_app.sh`。
 
 ## 發布到 GitHub Releases
 
@@ -122,7 +124,7 @@ chmod +x Scripts/build_app.sh Scripts/run_tests.sh Scripts/security_audit.sh
 ```bash
 ./Scripts/publish_github_release.sh \
   --repo Shawn66168/AI-Usage-Monitor \
-  --version 0.2.0 \
+  --version 0.2.1 \
   --dry-run
 ```
 
@@ -130,7 +132,7 @@ chmod +x Scripts/build_app.sh Scripts/run_tests.sh Scripts/security_audit.sh
 
 ## 測試
 
-`Scripts/run_tests.sh` 包含五組既有核心測試、七組更新檢查測試、實機 provider 診斷、完整 Swift 6 警告即錯誤編譯，以及目前原始碼／Git 完整歷史的 Secret、敏感檔案與個人路徑掃描。當 Antigravity 未啟動時，診斷預期回報 `unavailable`，而不是把整體刷新判定為失敗。
+`Scripts/run_tests.sh` 包含六組核心測試（含 Admin API 刷新閘門）、七組更新檢查測試、實機 provider 診斷、完整 Swift 6 警告即錯誤編譯，以及目前原始碼／Git 完整歷史的 Secret、敏感檔案與個人路徑掃描。當 Antigravity 未啟動時，診斷預期回報 `unavailable`，而不是把整體刷新判定為失敗。
 
 本機實測已確認 Claude 可取得兩個 quota window、Token 與 Context；Codex 可取得五小時與每週 quota、Token 與 Context；ChatGPT 與 Manus 正確呈現受限狀態；未設定 Admin Key 時，兩個 API 組織 provider 正確呈現 `needsConfiguration`。完整結果請見 [TEST_REPORT.md](TEST_REPORT.md)。
 
@@ -139,6 +141,8 @@ chmod +x Scripts/build_app.sh Scripts/run_tests.sh Scripts/security_audit.sh
 第一版的 Antigravity quota 只在 Antigravity Language Server 執行時刷新。Codex 的七天 Token 統計只包含此 Mac 的本機 session history，不包含其他裝置或純網頁使用；Codex quota 百分比則來自官方 app-server。Claude Token／Context 依 Claude Code 提供的本機快照，並不等同整個帳戶跨裝置的完整 Token 帳本。
 
 ChatGPT 一般模型與 Manus 個人用量維持「官方未提供」或「等待官方資料來源」是刻意的安全決策，而不是錯誤。若未來官方提供穩定且允許自動存取的介面，只需新增 conform to `UsageProvider` 的 provider，不必改寫儀表板。
+
+Anthropic 與 OpenAI Admin API 的 15 分鐘限制是本機的最小刷新政策，能避免高頻輪詢，但目前尚未實作 HTTP 429 的 `Retry-After` 解析與伺服器指定 cooldown；此項將作為後續 Rate Limit 強化。
 
 GitHub 更新檢查依賴 Public Release metadata，且只提供通知與開啟 Release 頁面，不會自動下載、驗證或安裝新版。Public GitHub REST API 的未驗證請求存在每 IP 每小時限制，因此預設不使用高頻輪詢。[10]
 
