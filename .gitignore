@@ -1,11 +1,7 @@
 .DS_Store
 .build/
+Build/
 DerivedData/
 *.xcuserstate
 *.xcuserdata/
 Resources/dashboard-preview.png
-
-# Keep packaged local release artifacts in Build for delivery.
-# Remove the following exception if releases are distributed elsewhere.
-!Build/
-!Build/**
