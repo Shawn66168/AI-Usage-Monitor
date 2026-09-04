@@ -11,8 +11,9 @@ AI Usage Monitor 採用 **local-first、read-only、data minimization** 的安�
 | Codex | 只呼叫官方本機 `account/rateLimits/read`；session JSONL 只處理包含 `token_count` 的事件並解碼數值結構。 |
 | Antigravity | CSRF token 僅在記憶體中用於 loopback request；不寫檔、不顯示、不傳至非 localhost。 |
 | ChatGPT／Manus | 不擷取 Cookie、不解析 Session Storage、不爬取帳戶頁面。 |
-| 快取 | Application Support 只儲存正規化後的非敏感 snapshot，不儲存原始回應或憑證。 |
-| 網路 | 只有使用者設定 Admin Key 後，才呼叫 Anthropic 或 OpenAI 官方 HTTPS Usage／Cost endpoint。 |
+| 快取 | Application Support 只儲存正規化後的非敏感 snapshot；更新快取只含公開 Release metadata 與 ETag，不儲存原始用量回應或憑證。 |
+| GitHub 更新 | 使用隔離且停用 Cookie 的 ephemeral URLSession，只呼叫固定 Public GitHub latest Release endpoint，不附帶 Authorization；Release 頁面必須通過 `https://github.com/Shawn66168/AI-Usage-Monitor/releases/` 白名單。 |
+| 網路 | 設定 Admin Key 後才呼叫 Anthropic/OpenAI 官方 Usage／Cost endpoint；GitHub 更新檢查只讀取公開 metadata，不傳送 AI 用量、裝置 ID 或使用者名稱。 |
 | 日誌 | Provider 錯誤只顯示摘要，不輸出 request header、完整 server process command 或原始對話。 |
 
 ## 威脅模型
@@ -21,13 +22,15 @@ AI Usage Monitor 採用 **local-first、read-only、data minimization** 的安�
 
 Antigravity provider 會從本機 process list 辨識 Language Server 的 PID 與暫時 CSRF token。Token 只用於 `127.0.0.1` 的 `GetUserStatus` request；錯誤訊息與快取均不得包含它。程式不使用 shell 拼接執行未受信任內容，`Process` 的 executable 與 arguments 皆由應用程式白名單決定。
 
+GitHub Release 的標題與說明視為未受信任的公開文字，只以 SwiftUI `Text` 顯示且限制行數，不當成 HTML、Markdown command 或 shell 執行。此版本只開啟通過 HTTPS 與 Repository path 白名單的 Release 頁面，不會自動下載、解壓或執行 Release asset。API response 上限為 1 MiB，遇到 403／429 不進行密集重試。
+
 ## 憑證操作建議
 
 管理金鑰屬於高敏感資料。請從 1Password 複製後直接貼入應用程式設定，不要貼到聊天室、Issue、Commit、截圖或一般文字檔。Anthropic 應使用最小必要權限的 Admin Key；OpenAI 應使用 Organization Admin Key。若懷疑洩漏，應立即在供應商控制台撤銷並重新建立。
 
 ## 驗證
 
-`Scripts/run_tests.sh` 會執行硬編碼 Secret pattern 掃描，以及對 `.credentials.json`、Session Storage、transcript、history 與對話 payload 讀取模式的禁止項目掃描。這些掃描不能取代專業安全稽核，但可防止常見的回歸錯誤。
+`Scripts/run_tests.sh` 會執行硬編碼 Secret pattern 掃描、Git 完整歷史掃描、敏感檔名掃描、個人絕對路徑掃描，以及對 `.credentials.json`、Session Storage、transcript、history 與對話 payload 讀取模式的禁止項目掃描。`Scripts/publish_github_release.sh` 在任何 GitHub 推送前還會解壓本次 App／Source ZIP，重新掃描 Secret、憑證檔、Cookie、個人路徑與 binary build path；任一項失敗便中止。這些自動檢查不能取代第三方專業安全稽核，但可阻擋常見洩漏與回歸。
 
 ## 回報安全問題
 

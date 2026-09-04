@@ -2,30 +2,47 @@
 
 **測試日期：2026-09-04**  
 **平台：macOS 26.6.2、Apple Silicon arm64、Swift 6.3.3**  
-**版本：0.1.0**
+**版本：0.2.0**
 
 ## 結論
 
-核心功能、資料解析、安全控制與 Release 打包均已通過自動化驗證。Claude 與 Codex 已以使用者此 Mac 的真實本機資料完成整合測試；Antigravity 在未啟動時正確回報 `unavailable`；ChatGPT 與 Manus 正確維持受限狀態；未設定管理金鑰時，Anthropic API 與 OpenAI API 正確回報 `needsConfiguration`。
+核心功能、GitHub 更新提示、資料解析、安全控制與 Release 打包均已通過自動化驗證。Claude 與 Codex 已以此 Mac 的真實本機資料完成整合測試；Antigravity 在未啟動時正確回報 `unavailable`；ChatGPT 與 Manus 正確維持受限狀態；未設定管理金鑰時，Anthropic API 與 OpenAI API 正確回報 `needsConfiguration`。
 
-> **整體結果：PASS。** Release `.app` 已成功由 macOS Launch Services 啟動並維持執行，bundle identifier、arm64 binary、Info.plist 與 ad-hoc codesign 均通過驗證。
+> **整體結果：PASS。** 0.2.0 Release `.app` 已由 macOS Launch Services 啟動，版本、bundle identifier、arm64 binary、Info.plist、ad-hoc codesign、App／Source ZIP、SHA-256 與敏感資訊掃描均通過驗證。
 
 ## 自動化測試
 
 | 測試 | 結果 | 驗證內容 |
 |---|---:|---|
-| Quota 正規化 | PASS | `usedPercent` 與 `remainingPercent` 限制於 0–100，兩者合計為 100。 |
-| 日期解析 | PASS | 支援有／無 fractional seconds 的 ISO 8601 reset time。 |
-| Claude Fixture | PASS | 五小時、七天、Token、Context、重置時間與 session cost 解析。 |
-| ProcessRunner | PASS | stdout 完整讀取、exit code、timeout 架構；修正大量 `ps` 輸出造成 Pipe 填滿的風險。 |
-| Keychain Round Trip | PASS | 在隔離的測試 service 中完成寫入、讀回與刪除，測試資料不殘留。 |
+| 核心單元測試 | PASS（5 組） | Quota 正規化、日期解析、Claude Fixture、ProcessRunner、Keychain round trip。 |
+| 更新檢查測試 | PASS（7 組） | SemVer、GitHub payload、版本提示、忽略版本、ETag、Prerelease、cache 與 request security。 |
 | Swift 6 Release 編譯 | PASS | `-warnings-as-errors`、whole-module optimization，無 warning 或 error。 |
 | 隱私禁止項掃描 | PASS | 未發現 `.credentials.json`、Session Storage、transcript、history 或對話 payload 讀取。 |
-| Secret pattern 掃描 | PASS | 原始碼與文件未發現硬編碼 Anthropic、OpenAI 或 Google key。 |
+| 目前原始碼 Secret 掃描 | PASS | 未發現 API Key、GitHub Token、私鑰或 Authorization value。 |
+| Git 完整歷史 Secret 掃描 | PASS | 所有 Commit 未發現金鑰或 Token pattern。 |
+| 敏感檔名掃描 | PASS | 未追蹤 `.env`、credentials、Cookie、PEM、P8、P12、SSH key 或 provisioning profile。 |
+| 個人絕對路徑掃描 | PASS | 目前可發布原始碼未包含 `/Users/...` 或 `/home/...`。 |
+
+## GitHub 更新檢查驗證
+
+| 情境 | 結果 |
+|---|---:|
+| `v` 前綴與 `X.Y.Z` 正規化 | PASS |
+| major／minor／patch 與 prerelease 比較 | PASS |
+| 遠端版本高於本機時提示 | PASS |
+| 相同版本不提示 | PASS |
+| Prerelease 不提示正式版使用者 | PASS |
+| 忽略與重新提示指定版本 | PASS |
+| ETag conditional request 與 304 cache | PASS |
+| Request 不含 Authorization | PASS |
+| Request 不含 Cookie | PASS |
+| Endpoint 固定為 GitHub latest Release | PASS |
+| Release URL 強制 HTTPS 與 Repository path 白名單 | PASS |
+| 快取不含憑證、Cookie 或 CSRF Token | PASS |
+
+Repository 在功能開發與資安稽核階段仍保持 Private，因此未驗證請求的即時 GitHub API 測試會在切換 Public 後執行；公開前不以 Token 規避此限制。
 
 ## 實機 Provider 診斷
-
-實機全量 provider 刷新耗時約 **0.79 秒**。診斷報告如下：
 
 | Provider | 狀態 | Quota | Token | Context | 判定 |
 |---|---|---:|---:|---:|---|
@@ -37,52 +54,45 @@
 | Anthropic API | `needsConfiguration` | 0 | 無 | 無 | 未設定 Admin Key 時狀態正確。 |
 | OpenAI API | `needsConfiguration` | 0 | 無 | 無 | 未設定 Organization Admin Key 時狀態正確。 |
 
-## Release Bundle 驗證
+## Release Bundle 與資產驗證
 
 | 項目 | 結果 |
 |---|---:|
 | Bundle identifier `com.xing.ai-usage-monitor` | PASS |
+| `CFBundleShortVersionString` 為 `0.2.0` | PASS |
 | Mach-O arm64 | PASS |
 | Info.plist lint | PASS |
-| ad-hoc codesign verify `--deep --strict` | PASS |
-| ZIP 建立 | PASS |
-| Launch Services 註冊與啟動 | PASS |
-| 啟動後程序穩定存在 | PASS |
+| ad-hoc codesign `--deep --strict` | PASS |
+| Launch Services 啟動與程序存活 | PASS |
+| App ZIP SHA-256 | PASS |
+| Source ZIP SHA-256 | PASS |
+| App／Source ZIP Secret 掃描 | PASS |
+| App／Source ZIP 敏感檔名掃描 | PASS |
+| Source ZIP 個人絕對路徑掃描 | PASS |
+| Compiled binary build path 掃描 | PASS |
 
 輸出檔案：
 
 ```text
 Build/AI Usage Monitor.app
-Build/AI-Usage-Monitor-macOS-arm64-v0.1.0.zip
+Build/AI-Usage-Monitor-macOS-arm64-v0.2.0.zip
+Build/AI-Usage-Monitor-Source-v0.2.0.zip
+Build/SHA256SUMS-v0.2.0.txt
 ```
 
 ## 視覺驗證限制
 
-遠端命令工作階段沒有 macOS WindowServer 螢幕擷取權限，因此 `screencapture` 無法取得儀表板影像；這不影響 Release App 的啟動與功能診斷。SwiftUI 視圖已通過完整 Release 編譯，App bundle 亦已由 Launch Services 成功啟動。首次由 Finder 開啟後，仍建議使用者人工確認選單列寬度、視窗大小與目前顯示器縮放下的排版，若需要可再進行第二輪視覺微調。
+遠端命令工作階段沒有 macOS WindowServer 螢幕擷取權限，因此無法擷取選單列 `NEW` 徽章影像。SwiftUI 選單列、更新卡片與設定頁已通過完整 Release 編譯，App bundle 亦成功啟動；安裝後仍建議人工確認目前顯示器縮放下的選單列寬度與 Release Notes 摘要排版。
 
 ## 執行方式
 
 ```bash
 cd "/path/to/AIUsageMonitor"
 ./Scripts/run_tests.sh
-./Scripts/build_app.sh
+VERSION=0.2.0 BUILD_NUMBER=5 ./Scripts/build_app.sh
+./Scripts/security_audit.sh --artifacts Build
 ```
 
-## GitHub Releases 發布自動化驗證
+## GitHub Releases 發布防呆
 
-**驗證日期：2026-09-04**
-
-| 測試情境 | 結果 | 預期保護 |
-|---|---:|---|
-| 完整 `--dry-run` | PASS | 執行測試、打包、Source ZIP 與 SHA-256，但不改變 GitHub |
-| 缺少 `--repo` | PASS | 立即中止，不推測其他 Repository |
-| Repository 格式錯誤 | PASS | 只接受 `OWNER/REPOSITORY` |
-| `--version` 含錯誤 `v` 前綴 | PASS | 要求以 `0.1.1` 格式傳入，由腳本建立 `v0.1.1` Tag |
-| Release Notes 未包含目標版本 | PASS | 阻止使用舊版發布說明 |
-| Local Tag 指向其他 commit | PASS | 不移動、不覆寫既有 Tag |
-| Source ZIP 禁止路徑 | PASS | 不含 `Build/`、`.build/` 或 `.git/` |
-| Info.plist 版本與 Build Number | PASS | `0.1.1` 與 Git commit count 正確寫入 |
-| SHA-256 回驗 | PASS | App ZIP 與 Source ZIP 均驗證成功 |
-| Git 工作目錄 | PASS | Dry Run 後仍保持乾淨，Build 產物不被 Git 追蹤 |
-
-正式發布屬於會改變 GitHub 遠端狀態的操作，因此本次只執行 Dry Run，沒有建立 `Shawn66168/AI-Usage-Monitor` Repository、Tag 或 Release。
+發布腳本會強制要求 `--repo` 與合法 SemVer，拒絕髒工作目錄、舊版 Release Notes、衝突 Tag 與既有 Release。它會在任何 Push 前執行完整測試、建立本次版本的 App／Source ZIP、產生 SHA-256，並只將本次兩個 ZIP 放入隔離目錄執行資產安全稽核，避免舊版 Build artifact 干擾判定。

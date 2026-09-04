@@ -19,6 +19,7 @@
 | 低用量通知 | 完成 | 剩餘用量首次低於門檻時發送 macOS 通知，同一 quota 在同一重置週期不重複提醒。 |
 | 登入自動啟動 | 完成 | 使用 `SMAppService.mainApp` 註冊原生 macOS 登入項目，並顯示系統實際狀態。 |
 | 自動刷新與快取 | 完成 | 預設每 60 秒更新；各 provider 失敗互不影響，並保留最近成功的非敏感快照。 |
+| GitHub 版本提示 | 完成 | 每 6 小時唯讀檢查 Public GitHub Release；有新版時選單列顯示 `NEW`，可查看 Release 或略過版本。 |
 
 Claude 的網頁、桌面與 Claude Code 訂閱使用相同的用量限制，Claude Code 也提供方案用量與重置資訊。[1] Codex 官方文件將 Codex 用量頁與 `/status` 列為查看 allowance 與 reset time 的正式方法。[2] Antigravity 官方 CLI `/usage` 會從後端刷新各模型 quota，而 Pro／Ultra 方案另有五小時與每週限制。[3] [4]
 
@@ -44,7 +45,7 @@ Build/AI Usage Monitor.app
 可攜式安裝包位於：
 
 ```text
-Build/AI-Usage-Monitor-macOS-arm64-v0.1.0.zip
+Build/AI-Usage-Monitor-macOS-arm64-v0.2.0.zip
 ```
 
 先解壓縮 ZIP，將 **AI Usage Monitor.app** 拖曳到 `/Applications`，再以 Finder 開啟。此版本使用 ad-hoc 簽章，適合此 Mac 的本機測試與使用，但沒有 Apple Developer ID notarization；若 Gatekeeper 顯示提示，可對 App 按右鍵選擇「打開」，或依 macOS「隱私權與安全性」畫面核准。正式對外散布版本應改用 Developer ID 簽章與 Apple notarization。[5]
@@ -72,6 +73,12 @@ Build/AI-Usage-Monitor-macOS-arm64-v0.1.0.zip
 
 應用程式不會把 Key 寫進 `.env`、JSON、UserDefaults 或 Git。輸入後直接存入 Keychain，設定畫面只顯示「已安全儲存」，不回填完整內容。建議從 1Password 複製後直接貼入設定欄位。
 
+### App 更新提示
+
+應用程式會在啟動時與設定間隔到期後，唯讀查詢 Public GitHub Repository 的最新正式 Release。有新版本時，選單列圖示會顯示 `NEW`，展開後可查看版本摘要、略過該版本，或開啟 GitHub Release 頁面。設定中的「更新」分頁可選擇每 6、12 或 24 小時檢查，也可手動立即檢查。
+
+更新檢查只讀取公開版本、Release Notes、發布時間與 HTTPS 連結；不包含 GitHub Token、Cookie、AI 用量或裝置識別資料。此版本不會自動下載或執行遠端檔案。[9] [10]
+
 ### 低用量通知
 
 在「設定 → 一般」啟用系統通知並調整門檻，範圍為 5% 到 50%。macOS 第一次會詢問通知權限；若拒絕，可稍後到「系統設定 → 通知」調整。
@@ -89,8 +96,9 @@ Build/AI-Usage-Monitor-macOS-arm64-v0.1.0.zip
 | Antigravity | 本機 `GetUserStatus` 的 model label、remainingFraction、resetTime | 不把 CSRF token 寫檔、顯示或外傳 |
 | API 組織 | 官方 HTTPS Usage／Cost endpoint | 不呼叫模型、不產生 Token、不修改組織設定 |
 | ChatGPT／Manus | 無自動讀取 | 不解析 Session Storage、不擷取 Cookie、不爬取帳戶頁面 |
+| GitHub 更新 | Public Release 的版本、名稱、說明、發布時間與 HTTPS URL | 不使用 GitHub Token、不傳送 AI 用量或裝置資訊、不下載執行檔 |
 
-完整安全設計請閱讀 [SECURITY.md](SECURITY.md)，架構決策請閱讀 [ARCHITECTURE.md](ARCHITECTURE.md)。
+完整安全設計請閱讀 [SECURITY.md](SECURITY.md)，公開前稽核結果請閱讀 [SECURITY_AUDIT.md](SECURITY_AUDIT.md)，更新資料流請閱讀 [UPDATE_CHECK_DESIGN.md](UPDATE_CHECK_DESIGN.md)，整體架構決策請閱讀 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
 ## 從原始碼建置
 
@@ -98,32 +106,31 @@ Build/AI-Usage-Monitor-macOS-arm64-v0.1.0.zip
 
 ```bash
 cd "/path/to/AIUsageMonitor"
-chmod +x Scripts/build_app.sh Scripts/run_tests.sh
+chmod +x Scripts/build_app.sh Scripts/run_tests.sh Scripts/security_audit.sh
 ./Scripts/run_tests.sh
 ./Scripts/build_app.sh
 ```
 
-`build_app.sh` 會以 Swift 6、Release 最佳化與 warnings-as-errors 編譯，建立 `Info.plist`、組裝 `.app`、執行 ad-hoc codesign 驗證，最後輸出 ZIP。可用環境變數覆寫版本與 Build Number，例如 `VERSION=0.1.1 BUILD_NUMBER=3 ./Scripts/build_app.sh`。
+`build_app.sh` 會以 Swift 6、Release 最佳化與 warnings-as-errors 編譯，建立 `Info.plist`、組裝 `.app`、執行 ad-hoc codesign 驗證，最後輸出 ZIP。可用環境變數覆寫版本與 Build Number，例如 `VERSION=0.2.0 BUILD_NUMBER=5 ./Scripts/build_app.sh`。
 
 ## 發布到 GitHub Releases
 
-本專案提供 Mac 本機發布腳本，並強制要求以 `--repo OWNER/REPOSITORY` 明確指定唯一目標。腳本會依序檢查 Git 狀態與 GitHub CLI 登入、執行完整測試、建立版本化 App／Source ZIP、產生 SHA-256 Checksums、推送分支與 Annotated Tag，再建立 GitHub Release。GitHub CLI 官方支援以 `--repo`、`--verify-tag`、`--notes-file` 與檔案參數建立包含 assets 的 Release。[9]
+本專案提供 Mac 本機發布腳本，並強制要求以 `--repo OWNER/REPOSITORY` 明確指定唯一目標。腳本會依序檢查 Git 狀態與 GitHub CLI 登入、執行完整測試、建立版本化 App／Source ZIP、產生 SHA-256 Checksums、推送分支與 Annotated Tag，再建立 GitHub Release。GitHub CLI 官方支援以 `--repo`、`--verify-tag`、`--notes-file` 與檔案參數建立包含 assets 的 Release。[11]
 
 第一次先執行不修改 GitHub 的 Dry Run：
 
 ```bash
 ./Scripts/publish_github_release.sh \
   --repo Shawn66168/AI-Usage-Monitor \
-  --version 0.1.1 \
-  --create-repo \
+  --version 0.2.0 \
   --dry-run
 ```
 
-確認通過後移除 `--dry-run` 即可正式建立 Private Repository 並發布。後續版本因 Repository 已存在，不需要 `--create-repo`。完整參數、防呆、Draft／Prerelease 與故障恢復方式請閱讀 [RELEASING.md](RELEASING.md)。
+確認通過後移除 `--dry-run` 即可正式發布。腳本會在任何 GitHub 推送前執行 Git 歷史、Secret、敏感檔案、Source ZIP、App ZIP 與 binary 絕對路徑稽核；任一項失敗都會中止。若是建立新的公開 Repository，可另外使用 `--create-repo --public`。完整參數、防呆、Draft／Prerelease 與故障恢復方式請閱讀 [RELEASING.md](RELEASING.md)。
 
 ## 測試
 
-`Scripts/run_tests.sh` 包含五組可重複單元測試、實機 provider 診斷、完整 Swift 6 警告即錯誤編譯，以及敏感路徑／硬編碼金鑰掃描。當 Antigravity 未啟動時，診斷預期回報 `unavailable`，而不是把整體刷新判定為失敗。
+`Scripts/run_tests.sh` 包含五組既有核心測試、七組更新檢查測試、實機 provider 診斷、完整 Swift 6 警告即錯誤編譯，以及目前原始碼／Git 完整歷史的 Secret、敏感檔案與個人路徑掃描。當 Antigravity 未啟動時，診斷預期回報 `unavailable`，而不是把整體刷新判定為失敗。
 
 本機實測已確認 Claude 可取得兩個 quota window、Token 與 Context；Codex 可取得五小時與每週 quota、Token 與 Context；ChatGPT 與 Manus 正確呈現受限狀態；未設定 Admin Key 時，兩個 API 組織 provider 正確呈現 `needsConfiguration`。完整結果請見 [TEST_REPORT.md](TEST_REPORT.md)。
 
@@ -132,6 +139,8 @@ chmod +x Scripts/build_app.sh Scripts/run_tests.sh
 第一版的 Antigravity quota 只在 Antigravity Language Server 執行時刷新。Codex 的七天 Token 統計只包含此 Mac 的本機 session history，不包含其他裝置或純網頁使用；Codex quota 百分比則來自官方 app-server。Claude Token／Context 依 Claude Code 提供的本機快照，並不等同整個帳戶跨裝置的完整 Token 帳本。
 
 ChatGPT 一般模型與 Manus 個人用量維持「官方未提供」或「等待官方資料來源」是刻意的安全決策，而不是錯誤。若未來官方提供穩定且允許自動存取的介面，只需新增 conform to `UsageProvider` 的 provider，不必改寫儀表板。
+
+GitHub 更新檢查依賴 Public Release metadata，且只提供通知與開啟 Release 頁面，不會自動下載、驗證或安裝新版。Public GitHub REST API 的未驗證請求存在每 IP 每小時限制，因此預設不使用高頻輪詢。[10]
 
 ## 開源參考與授權
 
@@ -147,4 +156,6 @@ ChatGPT 一般模型與 Manus 個人用量維持「官方未提供」或「等�
 [6]: https://www.postman.com/api-evangelist/anthropic/documentation/35240-161be0c1-64cc-4b47-91c9-725bc95b4451 "Anthropic Usage and Cost API Documentation"
 [7]: https://developers.openai.com/api/reference/resources/admin/subresources/organization/subresources/usage/methods/completions/ "OpenAI Organization Completions Usage API"
 [8]: https://developers.openai.com/api/reference/resources/admin/subresources/organization/subresources/usage/methods/costs/ "OpenAI Organization Costs API"
-[9]: https://cli.github.com/manual/gh_release_create "GitHub CLI Manual — gh release create"
+[9]: https://docs.github.com/en/rest/releases/releases "GitHub REST API endpoints for releases"
+[10]: https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api "GitHub REST API rate limits"
+[11]: https://cli.github.com/manual/gh_release_create "GitHub CLI Manual — gh release create"
