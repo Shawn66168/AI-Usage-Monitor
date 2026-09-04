@@ -161,6 +161,8 @@ if [[ "$NOTES_FILE" != /* ]]; then
 fi
 [[ -f "$NOTES_FILE" ]] || die "Release notes file not found: $NOTES_FILE"
 [[ -s "$NOTES_FILE" ]] || die "Release notes file is empty: $NOTES_FILE"
+grep -F "$VERSION" "$NOTES_FILE" >/dev/null 2>&1 \
+  || die "Release notes do not mention version $VERSION: $NOTES_FILE"
 
 require_command git
 require_command gh
